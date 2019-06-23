@@ -78,7 +78,7 @@ class PixhawkLog:
         return out
 
     def open_log(self, file):
-        interpreter_name = os.path.split(sys.executable)[-1]
+        interpreter_name = sys.executable
         cmd = "{} open_log.py --format {} {}".format(interpreter_name, format, file)
         b_out = subprocess.check_output([interpreter_name, 'open_log.py', '--format','json',file])
         out = b_out.decode('utf-8')
@@ -89,7 +89,7 @@ class PixhawkLog:
         sorted_ts = sorted(Line.timestamps.keys())
 
         assert len(Line.timestamps), "No timestamp recorded"
-        assert timestamp > sorted_ts[0], "Required timestamp is below lowest record (required: {}, lowest: {})".format(timestamp, sorted_ts[0])
+        assert timestamp >= sorted_ts[0], "Required timestamp is below lowest record (required: {}, lowest: {})".format(timestamp, sorted_ts[0])
         assert timestamp < sorted_ts[-1], "Required timestamp is above highest record (required: {}, highest: {})".format(timestamp, sorted_ts[-1])
 
         line = Line.get_nearest(timestamp, attr_type)
@@ -194,11 +194,11 @@ class ProtrackLog:
         roll = float(self.roll_format.format(roll))
         return roll
 
-    def get_horizfov(self, ph_log, timestamp):
-        return 36000 
+    def get_horizfov(self, ph_log, timestamp): # Operture
+        return 106
 
-    def get_vertfov(self, ph_log, timestamp):
-        return 36000 
+    def get_vertfov(self, ph_log, timestamp): # Vertical operture
+        return 106*3/4
 
     def get_sensortype(self, ph_log, timestamp):
         return 0
@@ -213,16 +213,16 @@ class ProtrackLog:
         return 0
 
     def get_orleft(self, ph_log, timestamp):
-        return 36000 
+        return 0
 
     def get_orright(self, ph_log, timestamp):
-        return 36000 
+        return 0
 
     def get_ortop(self, ph_log, timestamp):
-        return 36000 
+        return 0
 
     def get_orbottom(self, ph_log, timestamp):
-        return 36000 
+        return 0
 
     def build_line(self, ph_log, timestamp):
 
@@ -251,7 +251,7 @@ def get_frame_timestamp(frame_n, fps, start_time):
 @click.command()
 @click.option('--pixhawk_log', help="Path to the pixhawk log", type=str)
 @click.option('--output', help="Path to the output file", type=str)
-@click.option('--start_ts', help="Start timestamp in seconds (10 cyphers+float)", type=float)
+@click.option('--start_ts', help="Timestamp of the first frame in epoch format (10 cyphers+float)", type=float)
 @click.option('--frames_nb', help="Number of frames in the video", type=int)
 @click.option('--fps', help="Fps rate of the video", type=float)
 def main(pixhawk_log, output, start_ts, frames_nb, fps):
