@@ -8,6 +8,9 @@ import os
 import re
 from collections import defaultdict
 
+# Constants
+OPEN_LOG_PATH = "/home/pi/Documents/army/shd/scripts/hawk/open_log.py"
+#
 
 class Line:
 
@@ -79,8 +82,7 @@ class PixhawkLog:
 
     def open_log(self, file):
         interpreter_name = sys.executable
-        cmd = "{} open_log.py --format {} {}".format(interpreter_name, format, file)
-        b_out = subprocess.check_output([interpreter_name, 'open_log.py', '--format','json',file])
+        b_out = subprocess.check_output([interpreter_name, OPEN_LOG_PATH, '--format','json',file])
         out = b_out.decode('utf-8')
         return out
 
