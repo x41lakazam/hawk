@@ -23,7 +23,6 @@ class Line:
 
         self.metadata = dic['meta']
         self.data     = dic['data']
-
         self.type = self.metadata['type']
         self.timestamp = self.metadata['timestamp']
 
@@ -141,9 +140,7 @@ class ProtrackLog:
 
     def get_time(self, ph_log, timestamp):
         timestamp = self.timestamp_format.format(timestamp)
-        timestamp = timestamp.replace('.','')
-        timestamp = int(timestamp)
-
+        timestamp = float(timestamp)
         return timestamp
 
     def get_altitude(self, ph_log, timestamp):
@@ -233,7 +230,10 @@ class ProtrackLog:
         line += "\n"
         return line
 
-    def build_log(self, ph_log, start_ts, frames_n, fps):
+    def get_timestamp_of_frame(self, start_ts, frame_ix, fps):
+        return start_ts + frame_ix/fps
+
+    def build_log(self, ph_log, start_ts, frames_n, fps, crop_firstframe_ix):
         outputfile = self.filename
 
         first_line = self.line_format+'\n'
@@ -241,7 +241,7 @@ class ProtrackLog:
 
         open(outputfile, 'a').write(first_line+second_line)
 
-        ts = start_ts
+        ts = self.get_timestamp_of_frame(start_ts, crop_firstframe_ix, fps)
         for frame_ix in range(frames_n):
             line = self.build_line(ph_log, ts)
             open(outputfile, 'a').write(line)
@@ -254,18 +254,21 @@ def get_frame_timestamp(frame_n, fps, start_time):
 @click.option('--pixhawk_log', help="Path to the pixhawk log", type=str)
 @click.option('--output', help="Path to the output file", type=str)
 @click.option('--start_ts', help="Timestamp of the first frame in epoch format (10 cyphers+float)", type=float)
-@click.option('--frames_nb', help="Number of frames in the video", type=int)
+@click.option('--frames_nb', help="Number of frames to log", type=int)
 @click.option('--fps', help="Fps rate of the video", type=float)
-def main(pixhawk_log, output, start_ts, frames_nb, fps):
+@click.option('--crop_firstframe_ix', help="index of the first frame of the cropped video", type=float)
+def main(pixhawk_log, output, start_ts, frames_nb, fps, crop_firstframe_ix):
     """
     Translate a log from pixhawk flight controller to .TLM file (protrack
     format)
+    Example of usage: python3 hawk.py --pixhawk_log pixhawk_log_example_2.bin --output .tlm --frames_nb 2 --fps 30 --crop_firstframe_ix 80 --start_ts  1561103385.8849998
     """
     open(output,'w').close()
     in_log = PixhawkLog(pixhawk_log)
     out_log = ProtrackLog(output)
-    out_log.build_log(in_log, start_ts, frames_nb, fps)
+    out_log.build_log(in_log, start_ts, frames_nb, fps, crop_firstframe_ix)
 
 if __name__ == "__main__":
-    #main('/home/pi/Documents/army/shd/scripts/log_opener/aerosentinal_log.bin', 'translated.tlm',  1558327812.2333,  80, 15 )
+#    main('./pixhawk_log_example_2.bin', 'translated.tlm',  1561103385.79, 80,
+#         15, 20)
     main()
