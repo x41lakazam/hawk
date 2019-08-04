@@ -12,6 +12,10 @@ from collections import defaultdict
 OPEN_LOG_PATH = "/home/pi/Documents/army/shd/scripts/hawk/open_log.py"
 #
 
+def var_printer(**vars):
+    for n, v in vars.items():
+        print(n+':', v)
+
 class Line:
 
     types = defaultdict(list)
@@ -21,8 +25,8 @@ class Line:
     def __init__(self, dic):
         self.raw_dic = dic
 
-        self.metadata = dic['meta']
-        self.data     = dic['data']
+        self.metadata = dic['meta']     # Dic with type and timestamp
+        self.data     = dic['data']     # Full data dic
         self.type = self.metadata['type']
         self.timestamp = self.metadata['timestamp']
 
@@ -95,6 +99,23 @@ class PixhawkLog:
 
         line = Line.get_nearest(timestamp, attr_type)
         return line
+
+    def get_record_startandstop(self, fps, video_len):
+        cmd_lines  = Line.types['CMD']
+        record_end = record_start = None
+
+        for line in cmd_lines:
+            prm1, prm2 = line.data['Prm1'], line.data['Prm2']
+            if prm1 == 27 and prm2 == 0:
+                record_end = float(line.timestamp)
+
+        if not record_end:
+            record_end = self.lines[-1].timestamp
+
+        record_start = record_end - video_len/fps
+
+        return record_start, record_end
+
 
 class ProtrackLog:
 
@@ -233,6 +254,23 @@ class ProtrackLog:
     def get_timestamp_of_frame(self, start_ts, frame_ix, fps):
         return start_ts + frame_ix/fps
 
+    def get_frame_timestamp_backw(self, last_ts, frame_ix, fps):
+        return last_ts - frame_ix/fps
+
+    def build_log_backward(self, ph_log, last_ts, frames_n, fps, crop_firstframe_ix):
+        outputfile = self.filename
+
+        first_line = self.line_format+'\n'
+        second_line = "[sec]\t[feet]\t[deg]\t[deg]\t[meter]\t[deg]\t[meter]\t[deg]\t[deg]\t[deg]\t[deg]\t[int]\t[int]\t[pixel]\t[pixel]\t[pixel]\t[pixel]\n"
+
+        open(outputfile, 'a').write(first_line+second_line)
+
+        start_ts = self.get_frame_timestamp_backw(last_ts, crop_firstframe_ix, fps)
+        for frame_ix in range(frames_n):
+            line = self.build_line(ph_log, start_ts)
+            open(outputfile, 'a').write(line)
+            start_ts += 1/fps
+
     def build_log(self, ph_log, start_ts, frames_n, fps, crop_firstframe_ix):
         outputfile = self.filename
 
@@ -247,28 +285,31 @@ class ProtrackLog:
             open(outputfile, 'a').write(line)
             ts += 1/fps
 
-def get_frame_timestamp(frame_n, fps, start_time):
-    return start_time + frame_n/fps
+
 
 @click.command()
 @click.option('--pixhawk_log', help="Path to the pixhawk log", type=str)
 @click.option('--output', help="Path to the output file", type=str)
-@click.option('--start_ts', help="Timestamp of the first frame in epoch format (10 cyphers+float)", type=float)
 @click.option('--frames_nb', help="Number of frames to log", type=int)
 @click.option('--fps', help="Fps rate of the video", type=float)
 @click.option('--crop_firstframe_ix', help="index of the first frame of the cropped video", type=float)
-def main(pixhawk_log, output, start_ts, frames_nb, fps, crop_firstframe_ix):
+@click.option('--video_len', help="number of frames in the video", type=float)
+def main(pixhawk_log, output, frames_nb, fps, crop_firstframe_ix, video_len):
     """
     Translate a log from pixhawk flight controller to .TLM file (protrack
     format)
     Example of usage: python3 hawk.py --pixhawk_log pixhawk_log_example_2.bin --output .tlm --frames_nb 2 --fps 30 --crop_firstframe_ix 80 --start_ts  1561103385.8849998
     """
+    duration = frames_nb/fps
     open(output,'w').close()
-    in_log = PixhawkLog(pixhawk_log)
+    in_log  = PixhawkLog(pixhawk_log)
     out_log = ProtrackLog(output)
-    out_log.build_log(in_log, start_ts, frames_nb, fps, crop_firstframe_ix)
+    start_ts, end_ts = in_log.get_record_startandstop(fps, video_len)
+    crop_start_ts = start_ts + crop_firstframe_ix/fps
+    out_log.build_log(in_log, crop_start_ts, frames_nb, fps, crop_firstframe_ix)
 
 if __name__ == "__main__":
 #    main('./pixhawk_log_example_2.bin', 'translated.tlm',  1561103385.79, 80,
 #         15, 20)
+# EXAMPLE COMMAND: python3 hawk.py data/25_07.bin --output 25_07.txt --frames_nb 500 --crop_firstframe_ix 50
     main()
